@@ -148,3 +148,106 @@ El análisis se realizará sobre una estructura tipo panel con observaciones por
 
 La ventana temporal definitiva será seleccionada buscando contar con suficientes periodos pretratamiento y postratamiento, lo cual es particularmente importante para evaluar la plausibilidad del supuesto de tendencias paralelas en Diferencia en Diferencias y para construir adecuadamente el contrafactual en Control Sintético.
 
+## Preprocesamiento y limpieza de datos
+
+Como primera etapa del proyecto, se realizó un proceso de limpieza y estandarización de las bases de datos obtenidas del RNPDNO. Este procedimiento tuvo como objetivo generar conjuntos de datos consistentes y reproducibles para el análisis causal posterior.
+
+Las principales actividades realizadas fueron las siguientes:
+
+\begin{enumerate}
+\item Carga de los archivos originales utilizando \texttt{readr}.
+\item Estandarización de nombres de variables mediante la librería \texttt{janitor}.
+\item Conversión y validación de variables temporales.
+\item Revisión de valores faltantes y consistencia estructural de las bases.
+\item Verificación de cobertura temporal y territorial de los registros.
+\item Generación de versiones limpias y reproducibles de las bases de datos.
+\end{enumerate}
+
+Después del proceso de limpieza, se obtuvieron dos conjuntos de datos principales:
+
+\begin{itemize}
+\item \texttt{data\_clean.csv}, que contiene registros individuales de desapariciones.
+\item \texttt{timeseries\_clean.csv}, que contiene información agregada en formato temporal y que será utilizada para la construcción del panel entidad--periodo.
+\end{itemize}
+
+La base agregada contiene información para las 32 entidades federativas de México y cubre observaciones desde 2015, lo cual permite contar con periodos pretratamiento y postratamiento adecuados para los métodos de inferencia causal considerados en el estudio.
+
+## Construcción del panel entidad--periodo
+
+Una vez finalizado el proceso de limpieza y validación de las bases de datos, se procedió a construir el conjunto de datos principal para el análisis causal. Dado que el objetivo del proyecto consiste en estudiar cambios en desapariciones a través del tiempo y entre entidades federativas, se construyó una estructura tipo panel con observaciones por entidad y periodo temporal.
+
+La unidad de análisis del estudio quedó definida como:
+
+\[
+(i,t) = (\text{entidad federativa}, \text{periodo})
+\]
+
+donde \(i\) representa la entidad federativa y \(t\) representa el periodo mensual de observación.
+
+A partir de la base \texttt{timeseries\_clean.csv}, se agregaron las observaciones por entidad y mes, obteniendo una medida mensual del número total de desapariciones registradas en cada estado. Formalmente, la variable de resultado utilizada en esta etapa se define como:
+
+\[
+Y_{it} = \text{Número de desapariciones en la entidad } i \text{ durante el periodo } t.
+\]
+
+Posteriormente, se construyó una variable temporal asociada con el periodo posterior a la implementación de la Guardia Nacional:
+
+\[
+Post_t =
+\begin{cases}
+1, & \text{si } t \geq \text{junio de 2019}, \\
+0, & \text{en otro caso}.
+\end{cases}
+\]
+
+La fecha de junio de 2019 fue seleccionada debido a que corresponde al inicio formal de operaciones de la Guardia Nacional en México. Esta variable permitirá posteriormente identificar cambios diferenciales en las trayectorias temporales de desapariciones antes y después de la intervención.
+
+El resultado final de esta etapa fue la construcción de un panel balanceado para las 32 entidades federativas del país. Cada entidad cuenta con 130 observaciones mensuales, lo cual implica que todas las unidades presentan la misma cobertura temporal dentro de la ventana de estudio.
+
+La estructura balanceada del panel representa una ventaja importante para los métodos de inferencia causal considerados en este proyecto, particularmente para modelos de Diferencia en Diferencias y estudios de eventos, ya que facilita la comparación entre grupos tratados y de control a lo largo del tiempo y reduce problemas derivados de observaciones faltantes o periodos desalineados.
+
+Asimismo, contar con una estructura temporal homogénea permitirá posteriormente analizar tendencias previas a la intervención, evaluar la plausibilidad del supuesto de tendencias paralelas y construir contrafactuales más consistentes mediante técnicas de control sintético.
+
+## Análisis exploratorio de datos
+
+Como primera aproximación empírica, se realizó un análisis exploratorio de la serie temporal de desapariciones con el objetivo de identificar patrones generales, heterogeneidad entre entidades federativas y posibles cambios alrededor del periodo de implementación de la Guardia Nacional.
+
+Este análisis todavía no tiene una interpretación causal directa, pero resulta fundamental para motivar el diseño empírico posterior. En particular, permite observar si existen tendencias temporales relevantes, qué entidades concentran una mayor proporción de registros y si algunas trayectorias estatales podrían ser candidatas para construir grupos de tratamiento y control.
+
+### Evolución nacional de desapariciones
+
+La Figura \ref{fig:serie-nacional} presenta la evolución mensual del número total de desapariciones registradas en México. La línea vertical punteada indica junio de 2019, periodo utilizado como referencia preliminar para la implementación de la Guardia Nacional.
+
+```{r serie-nacional, echo=FALSE, fig.align='center', out.width='82%', fig.pos='H', fig.cap='Desapariciones en México a través del tiempo.'}
+knitr::include_graphics("images/grafica_nacional.png")
+```
+
+La serie nacional muestra una tendencia creciente a lo largo del periodo de estudio, acompañada de una volatilidad mensual considerable. Posterior a 2019 se observan niveles generalmente más altos que en los primeros años de la muestra. Sin embargo, esta comparación agregada debe interpretarse con cautela, ya que puede estar influida por cambios generales en el país, variaciones en los mecanismos de denuncia, diferencias estatales y eventos concurrentes no atribuibles directamente a la Guardia Nacional.
+
+Por esta razón, el análisis causal no se basará únicamente en la serie nacional agregada, sino en una estructura tipo panel que permita comparar entidades federativas con distintas trayectorias y niveles de exposición a la intervención.
+
+### Entidades con mayor número acumulado de desapariciones
+
+La Figura \ref{fig:top10-estados} muestra las diez entidades con mayor número acumulado de desapariciones durante el periodo analizado.
+
+```{r top10-estados, echo=FALSE, fig.align='center', out.width='82%', fig.pos='H', fig.cap='Diez entidades con mayor número acumulado de desapariciones.'}
+knitr::include_graphics("images/top_10_estados.png")
+```
+
+El análisis acumulado muestra una fuerte heterogeneidad territorial. En particular, el Estado de México concentra el mayor número de desapariciones registradas en el periodo, con una diferencia considerable respecto al resto de las entidades. Le siguen Guanajuato, Baja California, Jalisco, Ciudad de México y Nuevo León, entre otras.
+
+Esta heterogeneidad es relevante para el diseño causal porque sugiere que las entidades no son directamente comparables en niveles. Por ello, los métodos utilizados deberán apoyarse en comparaciones temporales, tendencias pretratamiento y construcción de contrafactuales, más que en comparaciones simples de niveles promedio.
+
+### Tendencias temporales en las principales entidades
+
+La Figura \ref{fig:tendencias-top5} presenta las trayectorias mensuales de desapariciones para las cinco entidades con mayor número acumulado de registros.
+
+```{r tendencias-top5, echo=FALSE, fig.align='center', out.width='82%', fig.pos='H', fig.cap='Tendencias temporales de desapariciones en las cinco entidades con mayor número acumulado.'}
+knitr::include_graphics("images/tendencias_top_5.png")
+```
+
+Las trayectorias estatales evidencian diferencias importantes tanto en niveles como en evolución temporal. El Estado de México presenta niveles considerablemente superiores al resto de las entidades, lo cual sugiere que puede comportarse como una unidad atípica dentro del análisis. Por otro lado, entidades como Guanajuato, Jalisco, Baja California y Ciudad de México presentan trayectorias más cercanas entre sí en ciertos periodos, aunque con diferencias relevantes en la etapa posterior a 2019.
+
+Este resultado es importante para las siguientes etapas del proyecto. En primer lugar, sugiere que la selección del grupo tratado y del grupo de control debe realizarse con cuidado, evitando comparaciones entre entidades con dinámicas excesivamente distintas. En segundo lugar, la visualización de tendencias previas será fundamental para evaluar la plausibilidad del supuesto de tendencias paralelas requerido por el método de Diferencia en Diferencias. Finalmente, la presencia de entidades con trayectorias diferenciadas justifica el uso complementario de Control Sintético, especialmente para analizar casos específicos donde sea posible construir un contrafactual adecuado.
+
+En conjunto, el análisis exploratorio muestra que el fenómeno de desapariciones en México presenta una dimensión temporal y territorial suficientemente rica para ser estudiada mediante métodos dinámicos de inferencia causal. La siguiente etapa consistirá en definir formalmente las entidades tratadas y de control, así como estimar los modelos causales propuestos.
