@@ -1,0 +1,14 @@
+.Rhistory
+.RData
+.Rproj.user
+
+*.aux
+*.log
+*.out
+*.toc
+*.tex
+
+.DS_Store
+
+data/processed/
+outputs/

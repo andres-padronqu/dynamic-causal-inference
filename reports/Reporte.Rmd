@@ -1,0 +1,150 @@
+---
+title: "Evaluación causal del efecto de la Guardia Nacional sobre las desapariciones en México mediante Diferencia en Diferencias y Controles Sintéticos"
+author:
+  - "Andrés Padrón Quintana"
+  - "Manuel Alonso de la Tejera González"
+
+date: "`r format(Sys.Date(), '%d de %B de %Y')`"
+
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    fig_caption: true
+    latex_engine: xelatex
+
+fontsize: 11pt
+geometry: margin=1in
+lang: es
+
+header-includes:
+  - \usepackage{amsmath}
+  - \usepackage{amssymb}
+  - \usepackage{booktabs}
+  - \usepackage{float}
+---
+
+\newpage
+
+# Introducción
+
+Las desapariciones de personas en México constituyen uno de los problemas públicos más graves del país. Además de su dimensión humanitaria, jurídica y social, el fenómeno presenta una estructura temporal y territorial compleja: las desapariciones no ocurren de manera homogénea entre entidades federativas ni evolucionan de forma constante a través del tiempo. Por ello, su análisis requiere herramientas estadísticas capaces de incorporar tanto la dimensión temporal como la comparación entre regiones.
+
+En este proyecto se propone evaluar el posible efecto causal asociado con la aparición e implementación de la Guardia Nacional sobre el comportamiento de las desapariciones en México. La Guardia Nacional fue planteada como una intervención de seguridad pública de alcance nacional; sin embargo, su presencia, intensidad operativa y efectos potenciales pueden variar entre entidades federativas. Esta variación permite estudiar si ciertos estados experimentaron cambios diferenciales en las desapariciones después de la intervención, en comparación con estados que funcionen como grupo de control.
+
+El objetivo del estudio no es únicamente describir la evolución de las desapariciones, sino construir un marco causal que permita aproximar el contrafactual: qué habría ocurrido con las desapariciones en ciertas entidades si la intervención asociada con la Guardia Nacional no hubiera ocurrido o no hubiera tenido la misma intensidad. Para ello, se utilizarán dos metodologías principales de inferencia causal en contextos dinámicos: Diferencia en Diferencias y Controles Sintéticos.
+
+La estrategia de Diferencia en Diferencias permitirá estimar el efecto promedio del tratamiento sobre las unidades tratadas, comparando los cambios antes y después de la intervención entre entidades tratadas y entidades de control. Por su parte, el método de Control Sintético permitirá construir, para una entidad tratada específica, una combinación ponderada de entidades no tratadas que reproduzca su comportamiento previo a la intervención y funcione como contrafactual posterior.
+
+Este enfoque se alinea con los objetivos del proyecto final del curso, ya que combina una revisión conceptual de métodos de inferencia causal con una aplicación empírica a datos reales, incluyendo interpretación, visualización y discusión de supuestos. Además, el proyecto se desarrollará de forma reproducible en R, fijando semillas cuando se utilicen procedimientos aleatorios y separando el reporte principal de los archivos de experimentación y limpieza de datos.
+
+## Pregunta de investigación
+
+La pregunta principal del proyecto es:
+
+\begin{quote}
+¿Cuál fue el efecto causal asociado con la aparición e implementación de la Guardia Nacional sobre las desapariciones en México?
+\end{quote}
+
+De forma más específica, se busca responder:
+
+\begin{quote}
+¿Las entidades con mayor exposición o intensidad de presencia de la Guardia Nacional presentaron un cambio diferencial en las desapariciones después de la intervención, en comparación con entidades similares con menor exposición?
+\end{quote}
+
+## Hipótesis de trabajo
+
+La hipótesis general es que la implementación de la Guardia Nacional pudo modificar la dinámica de desapariciones en ciertas entidades federativas. Sin embargo, el signo esperado del efecto no es necesariamente evidente. Por un lado, una mayor presencia de seguridad pública podría estar asociada con una reducción en desapariciones si efectivamente inhibe la actividad criminal. Por otro lado, también podría observarse un aumento si la intervención se concentra en regiones con deterioro previo de seguridad, si genera desplazamiento de violencia, o si mejora los mecanismos de denuncia y registro.
+
+Por esta razón, el análisis se plantea de forma empírica y causal, evitando asumir de antemano que el efecto debe ser positivo o negativo. El interés principal será estimar y discutir el cambio diferencial observado, bajo los supuestos de identificación de los métodos utilizados.
+
+# Datos
+
+Para el análisis se consideran datos observados sobre desapariciones en México. La información utilizada proviene del Registro Nacional de Personas Desaparecidas y No Localizadas (RNPDNO), base de datos oficial administrada por la Comisión Nacional de Búsqueda (CNB), la cual concentra y actualiza información sobre personas desaparecidas y no localizadas en el país.
+
+Los datos empleados en este proyecto fueron obtenidos a partir de la Consulta Pública del RNPDNO. En particular, la recopilación, estructuración y organización inicial de los datos se realizó utilizando el repositorio público desarrollado por Montserrat, disponible en:
+
+\begin{center}
+\texttt{https://github.com/lapanquecita/personas-desaparecidas}
+\end{center}
+
+Dicho repositorio contiene scripts para descargar, limpiar y analizar la información pública del RNPDNO, permitiendo construir bases de datos estructuradas para análisis estadístico y temporal.
+
+La información disponible incluye variables relacionadas con fecha de desaparición, entidad federativa, municipio, sexo, edad, estatus y otras características relevantes asociadas a los registros de desaparición.
+
+Para el presente estudio se utilizarán principalmente dos conjuntos de datos:
+
+\begin{enumerate}
+\item \texttt{data.csv}, que contiene registros individuales o más desagregados de desapariciones.
+\item \texttt{timeseries\_victimas.csv}, que contiene información agregada en formato de serie temporal, incluyendo variables como periodo, entidad federativa y número total de víctimas.
+\end{enumerate}
+
+Dado el objetivo causal del proyecto, el archivo \texttt{timeseries\_victimas.csv} será la principal fuente para la construcción del panel temporal entidad--periodo. El archivo \texttt{data.csv} podrá utilizarse como fuente complementaria para exploración descriptiva, validación de patrones generales y construcción de visualizaciones auxiliares.
+
+## Unidad de análisis
+
+La unidad de análisis será:
+
+\[
+(i,t) = (\text{entidad federativa}, \text{periodo})
+\]
+
+donde \(i\) representa la entidad federativa y \(t\) representa el periodo temporal de observación. En principio, se trabajará con frecuencia mensual, siempre que la estructura final de la base lo permita.
+
+La variable de resultado será el número de desapariciones registradas en la entidad \(i\) durante el periodo \(t\), denotada por:
+
+\[
+Y_{it}.
+\]
+
+Dependiendo de la disponibilidad de información poblacional, se considerará utilizar tasas de desaparición por cada 100,000 habitantes con el objetivo de mejorar la comparabilidad entre entidades federativas con tamaños poblacionales distintos.
+
+## Variable de tratamiento
+
+La variable de tratamiento buscará capturar la exposición de cada entidad federativa a la Guardia Nacional. Esta definición representa una de las principales decisiones metodológicas del proyecto, ya que la Guardia Nacional tuvo alcance nacional, pero con intensidad de despliegue potencialmente distinta entre entidades.
+
+De manera preliminar, se consideran las siguientes posibilidades para operacionalizar el tratamiento:
+
+\begin{enumerate}
+\item Clasificar como tratadas aquellas entidades con alta presencia o despliegue de Guardia Nacional.
+\item Construir una medida relativa de intensidad utilizando información sobre efectivos, cuarteles u operativos.
+\item Identificar entidades prioritarias de intervención y compararlas con entidades de menor exposición.
+\end{enumerate}
+
+En una primera aproximación se utilizará una definición binaria de tratamiento:
+
+\[
+G_i =
+\begin{cases}
+1, & \text{si la entidad } i \text{ pertenece al grupo tratado}, \\
+0, & \text{si la entidad } i \text{ pertenece al grupo de control}.
+\end{cases}
+\]
+
+Asimismo, se definirá un periodo posterior a la intervención:
+
+\[
+Post_t =
+\begin{cases}
+1, & \text{si } t \text{ ocurre después de la implementación de la Guardia Nacional}, \\
+0, & \text{si } t \text{ ocurre antes de la implementación de la Guardia Nacional}.
+\end{cases}
+\]
+
+La variable de tratamiento efectiva será:
+
+\[
+D_{it} = G_i \times Post_t.
+\]
+
+## Construcción esperada del panel
+
+El análisis se realizará sobre una estructura tipo panel con observaciones por entidad y periodo temporal. La construcción general del panel tendrá la siguiente forma conceptual:
+
+\[
+(\text{Entidad}, \text{Periodo}, \text{Desapariciones}, \text{Tratamiento})
+\]
+
+La ventana temporal definitiva será seleccionada buscando contar con suficientes periodos pretratamiento y postratamiento, lo cual es particularmente importante para evaluar la plausibilidad del supuesto de tendencias paralelas en Diferencia en Diferencias y para construir adecuadamente el contrafactual en Control Sintético.
+
