@@ -1,5 +1,5 @@
 ---
-title: "Evaluación causal del efecto de la Guardia Nacional sobre las desapariciones en México mediante Diferencia en Diferencias y Controles Sintéticos"
+title: "Evaluación causal del efecto de la Guardia Nacional sobre las desapariciones en México"
 author:
   - "Andrés Padrón Quintana"
   - "Manuel Alonso de la Tejera González"
