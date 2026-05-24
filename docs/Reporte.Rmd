@@ -251,3 +251,163 @@ Las trayectorias estatales evidencian diferencias importantes tanto en niveles c
 Este resultado es importante para las siguientes etapas del proyecto. En primer lugar, sugiere que la selección del grupo tratado y del grupo de control debe realizarse con cuidado, evitando comparaciones entre entidades con dinámicas excesivamente distintas. En segundo lugar, la visualización de tendencias previas será fundamental para evaluar la plausibilidad del supuesto de tendencias paralelas requerido por el método de Diferencia en Diferencias. Finalmente, la presencia de entidades con trayectorias diferenciadas justifica el uso complementario de Control Sintético, especialmente para analizar casos específicos donde sea posible construir un contrafactual adecuado.
 
 En conjunto, el análisis exploratorio muestra que el fenómeno de desapariciones en México presenta una dimensión temporal y territorial suficientemente rica para ser estudiada mediante métodos dinámicos de inferencia causal. La siguiente etapa consistirá en definir formalmente las entidades tratadas y de control, así como estimar los modelos causales propuestos.
+
+# Diferencia en Diferencias (DID)
+
+## Modelo básico de Diferencia en Diferencias
+
+Como primera aproximación causal, se estimó un modelo básico de Diferencia en Diferencias (Difference-in-Differences, DID), utilizando a Guanajuato como grupo tratado y al resto de las entidades federativas como grupo de control.
+
+La especificación estimada fue:
+
+$$
+Y_{it} = \alpha + \beta_1 Treated_i + \beta_2 Post_t + \beta_3 (Treated_i \times Post_t) + \varepsilon_{it}
+$$
+
+donde:
+
+- $Y_{it}$ representa el número de desapariciones en la entidad $i$ y periodo $t$,
+- $Treated_i$ indica si la entidad pertenece al grupo tratado,
+- $Post_t$ identifica el periodo posterior a junio de 2019,
+- y el término de interacción captura el efecto diferencial posterior al tratamiento.
+
+El parámetro de interés es:
+
+$$
+\beta_3
+$$
+
+el cual representa el efecto promedio del tratamiento sobre el grupo tratado bajo el supuesto de tendencias paralelas.
+
+La Figura \ref{fig:pretrends} presenta la evolución temporal del grupo tratado y el grupo de control.
+
+```{r pretrends, echo=FALSE, out.width="90%", fig.cap="Comparación de tendencias temporales entre Guanajuato y el grupo de control.", fig.pos='H'}
+knitr::include_graphics("images/pretrends_did.png")
+```
+
+Visualmente, ambas series presentan una tendencia creciente antes de la implementación de la Guardia Nacional, aunque existen diferencias importantes en niveles. Esto sugiere que el supuesto de tendencias paralelas debe interpretarse con cautela y posteriormente validarse mediante especificaciones más robustas.
+
+## Resultados del modelo DID básico
+
+El modelo básico DID produjo un coeficiente positivo y estadísticamente significativo para el término de interacción:
+
+$$
+\widehat{\beta}_3 \approx 543
+$$
+
+lo que sugiere que, posterior a 2019, Guanajuato presentó aproximadamente 543 desapariciones adicionales por periodo respecto a la evolución observada en el grupo de control.
+
+Sin embargo, esta especificación todavía no controla por heterogeneidad no observada entre entidades ni por shocks agregados comunes en el tiempo, por lo que sus resultados deben interpretarse únicamente como evidencia preliminar.
+
+## Resultados del modelo DID con efectos fijos
+
+Para controlar por heterogeneidad inobservable constante en el tiempo y por shocks comunes a todas las entidades, se estimó un modelo DID con efectos fijos de entidad y periodo:
+
+$$
+Y_{it} = \alpha_i + \delta_t + \beta (Treated_i \times Post_t) + \varepsilon_{it}
+$$
+
+donde:
+
+- $\alpha_i$ representa efectos fijos por entidad,
+- $\delta_t$ representa efectos fijos temporales,
+- y el coeficiente de interacción mide el efecto diferencial posterior al tratamiento.
+
+El resultado principal fue:
+
+$$
+\widehat{\beta} \approx 542.6
+$$
+
+con alta significancia estadística ($p < 0.001$).
+
+Este resultado sugiere que, incluso después de controlar por diferencias estructurales entre entidades y variaciones comunes en el tiempo, Guanajuato experimentó un incremento diferencial en desapariciones posterior a la implementación de la Guardia Nacional.
+
+No obstante, es importante enfatizar que este resultado no implica necesariamente causalidad definitiva, ya que la validez del DID depende críticamente del supuesto de tendencias paralelas y de la ausencia de shocks simultáneos específicos para Guanajuato. Por esta razón, en las siguientes etapas se explorarán metodologías complementarias, particularmente Event Study y Control Sintético, para evaluar la robustez de los resultados obtenidos.
+
+## Estudio de eventos
+
+Para complementar el modelo de Diferencia en Diferencias, se estimó un estudio de eventos. Esta especificación permite analizar la evolución dinámica del efecto relativo antes y después de la fecha de intervención. En particular, el estudio de eventos es útil para evaluar si existían diferencias sistemáticas entre el grupo tratado y el grupo de control antes de la implementación de la Guardia Nacional.
+
+La especificación general estimada fue:
+
+$$
+Y_{it}
+=
+\alpha_i
++
+\lambda_t
++
+\sum_{k \neq -1}
+\delta_k
+\mathbf{1}(t - T_0 = k) \cdot Treated_i
++
+\varepsilon_{it},
+$$
+
+donde \(k\) representa el tiempo relativo respecto a junio de 2019, \(T_0\) es el periodo de referencia de la intervención, \(\alpha_i\) son efectos fijos por entidad y \(\lambda_t\) son efectos fijos por periodo. El periodo \(k=-1\) se omite como categoría de referencia.
+
+```{r event-study, echo=FALSE, fig.align='center', out.width='82%', fig.pos='H', fig.cap='Estudio de eventos para Guanajuato respecto al grupo de control.'}
+knitr::include_graphics("images/event_study.png")
+```
+
+La Figura \ref{fig:event-study} muestra la evolución de los coeficientes estimados en tiempo relativo al tratamiento. Los puntos representan los efectos estimados para cada periodo y las líneas verticales corresponden a los intervalos de confianza.
+
+Los resultados muestran que el efecto estimado no aparece como un salto inmediato justo después de junio de 2019. En los periodos cercanos a la intervención, varios coeficientes se mantienen cerca de cero y no presentan evidencia estadística clara de un cambio abrupto. Sin embargo, en los periodos posteriores más alejados se observa una tendencia creciente en los coeficientes estimados, lo cual sugiere que la diferencia entre Guanajuato y el grupo de control se amplía gradualmente después de la intervención.
+
+No obstante, también se observan coeficientes negativos y estadísticamente significativos en algunos periodos previos al tratamiento, especialmente en meses lejanos al periodo de referencia. Esto indica que Guanajuato no necesariamente seguía una trayectoria completamente paralela a la del grupo de control durante todo el periodo pretratamiento. Por esta razón, los resultados del modelo DID deben interpretarse con cautela.
+
+En conjunto, el estudio de eventos sugiere que la evidencia es consistente con una divergencia posterior entre Guanajuato y el grupo de control, pero también muestra limitaciones importantes en la validez del supuesto de tendencias paralelas. Por ello, el análisis se complementará con el método de Control Sintético, que permite construir un contrafactual específico para Guanajuato a partir de una combinación ponderada de entidades donadoras.
+
+## Control Sintético
+
+Como complemento al análisis de Diferencia en Diferencias y al estudio de eventos, se estimó un modelo de Control Sintético para Guanajuato. Este método permite construir una unidad contrafactual a partir de una combinación ponderada de entidades federativas no tratadas. La idea central es generar un ``Guanajuato sintético'' cuya trayectoria previa a junio de 2019 sea lo más parecida posible a la trayectoria observada de Guanajuato.
+
+Formalmente, el control sintético se construye como:
+
+$$
+Y^{SC}_{t}
+=
+\sum_{j=1}^{J}
+w_j Y_{jt},
+$$
+
+donde \(Y^{SC}_{t}\) representa el resultado del control sintético en el periodo \(t\), \(Y_{jt}\) es el resultado observado en la entidad donadora \(j\), y \(w_j\) son pesos no negativos que satisfacen:
+
+$$
+w_j \geq 0,
+\qquad
+\sum_{j=1}^{J} w_j = 1.
+$$
+
+Los pesos se eligen de manera que la combinación ponderada de entidades donadoras reproduzca lo mejor posible la trayectoria pretratamiento de Guanajuato. Después de junio de 2019, la diferencia entre Guanajuato observado y Guanajuato sintético se interpreta como una aproximación del efecto diferencial posterior a la intervención.
+
+```{r synth-control, echo=FALSE, fig.align='center', out.width='82%', fig.pos='H', fig.cap='Trayectoria observada de Guanajuato y trayectoria contrafactual estimada mediante Control Sintético.'}
+knitr::include_graphics("images/synth_control_guanajuato.png")
+```
+
+La Figura \ref{fig:synth-control} muestra la comparación entre la trayectoria observada de Guanajuato y su contraparte sintética. Antes de junio de 2019, ambas series presentan una evolución relativamente cercana, aunque el ajuste no es perfecto. Esto indica que el procedimiento logra aproximar de manera razonable la dinámica previa de Guanajuato utilizando una combinación ponderada de otras entidades federativas.
+
+Después del periodo de intervención, se observa una separación creciente entre ambas trayectorias. La serie observada de Guanajuato se mantiene de forma persistente por encima de la trayectoria sintética, lo que sugiere que las desapariciones observadas en Guanajuato fueron mayores que las que se habrían esperado bajo el contrafactual construido por el modelo.
+
+```{r synth-gap, echo=FALSE, fig.align='center', out.width='82%', fig.pos='H', fig.cap='Brecha entre Guanajuato observado y Guanajuato sintético.'}
+knitr::include_graphics("images/synth_gap_guanajuato.png")
+```
+
+La Figura \ref{fig:synth-gap} presenta la brecha entre Guanajuato observado y Guanajuato sintético, definida como:
+
+$$
+\widehat{\tau}_t
+=
+Y^{obs}_{Guanajuato,t}
+-
+Y^{SC}_{Guanajuato,t}.
+$$
+
+Una brecha cercana a cero indica que el control sintético reproduce adecuadamente la trayectoria observada. Una brecha positiva indica que Guanajuato registró más desapariciones que su contrafactual sintético, mientras que una brecha negativa indicaría lo contrario.
+
+Durante el periodo previo a la intervención, la brecha fluctúa alrededor de niveles relativamente moderados, lo cual sugiere un ajuste pretratamiento razonable. En cambio, después de junio de 2019, la brecha se vuelve persistentemente positiva y aumenta gradualmente. Este patrón es consistente con una divergencia posterior entre Guanajuato y su contrafactual sintético.
+
+Los pesos estimados para construir el control sintético muestran que el algoritmo no dependió de una sola entidad federativa, sino de una combinación de varias entidades donadoras. En particular, Michoacán de Ocampo recibió el mayor peso individual dentro de la combinación sintética, mientras que el resto del peso se distribuyó entre múltiples entidades con aportaciones menores. Esto sugiere que Guanajuato presenta una dinámica difícil de replicar con una sola entidad de comparación, por lo que el modelo utiliza una combinación amplia de trayectorias estatales para aproximar su comportamiento previo.
+
+En conjunto, los resultados del Control Sintético refuerzan la evidencia observada en el análisis de Diferencia en Diferencias y en el estudio de eventos: después de junio de 2019, Guanajuato presenta una trayectoria de desapariciones superior a la estimada por su contrafactual. No obstante, la interpretación causal debe mantenerse con cautela, ya que el diseño depende de que el control sintético capture adecuadamente la evolución que habría seguido Guanajuato en ausencia de la intervención y de que no existan shocks simultáneos específicos para la entidad.
