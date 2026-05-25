@@ -1,28 +1,29 @@
 ---
-title: "Evaluación causal del efecto de la Guardia Nacional sobre las desapariciones en México"
+title: Evaluación causal del efecto de la Guardia Nacional sobre las desapariciones
+  en México
 author:
-  - "Andrés Padrón Quintana"
-  - "Manuel Alonso de la Tejera González"
-
+- Andrés Padrón Quintana
+- Manuel Alonso de la Tejera González
 date: "`r format(Sys.Date(), '%d de %B de %Y')`"
-
 output:
+  html_document:
+    toc: true
+    toc_depth: '2'
+    df_print: paged
   pdf_document:
     toc: true
     toc_depth: 2
     number_sections: true
     fig_caption: true
     latex_engine: xelatex
-
 fontsize: 11pt
 geometry: margin=1in
 lang: es
-
 header-includes:
-  - \usepackage{amsmath}
-  - \usepackage{amssymb}
-  - \usepackage{booktabs}
-  - \usepackage{float}
+- \usepackage{amsmath}
+- \usepackage{amssymb}
+- \usepackage{booktabs}
+- \usepackage{float}
 ---
 
 \newpage
@@ -411,3 +412,145 @@ Durante el periodo previo a la intervención, la brecha fluctúa alrededor de ni
 Los pesos estimados para construir el control sintético muestran que el algoritmo no dependió de una sola entidad federativa, sino de una combinación de varias entidades donadoras. En particular, Michoacán de Ocampo recibió el mayor peso individual dentro de la combinación sintética, mientras que el resto del peso se distribuyó entre múltiples entidades con aportaciones menores. Esto sugiere que Guanajuato presenta una dinámica difícil de replicar con una sola entidad de comparación, por lo que el modelo utiliza una combinación amplia de trayectorias estatales para aproximar su comportamiento previo.
 
 En conjunto, los resultados del Control Sintético refuerzan la evidencia observada en el análisis de Diferencia en Diferencias y en el estudio de eventos: después de junio de 2019, Guanajuato presenta una trayectoria de desapariciones superior a la estimada por su contrafactual. No obstante, la interpretación causal debe mantenerse con cautela, ya que el diseño depende de que el control sintético capture adecuadamente la evolución que habría seguido Guanajuato en ausencia de la intervención y de que no existan shocks simultáneos específicos para la entidad.
+
+
+## Inferencia Causal Bayesiana con CausalImpact (BSTS)
+
+Como método adicional de validación, se implementó el enfoque de CausalImpact propuesto por Brodersen, Gallusser, Koehler, Remy y Scott (2015) en \textit{The Annals of Applied Statistics}. El método parte de un problema central para toda la inferencia causal observacional: en ausencia de un experimento aleatorizado, ¿cómo construir de forma creíble el contrafactual de una unidad expuesta a una intervención? La propuesta de Brodersen et al. consiste en modelar la serie de tiempo de la unidad tratada durante el periodo previo a la intervención utilizando como covariables las series de tiempo de unidades no tratadas que estén correlacionadas con ella. Una vez ajustado el modelo sobre el pretratamiento, se proyecta hacia el postratamiento para obtener la trayectoria esperada en ausencia de intervención. La diferencia entre lo observado y esa proyección constituye el efecto causal estimado.
+
+La principal innovación respecto a los métodos de Diferencia en Diferencias y Control Sintético es que este contrafactual no se resume en un valor puntual, sino en una distribución posterior completa, lo que permite cuantificar la incertidumbre de la estimación mediante intervalos de credibilidad bayesianos periodo a periodo.
+
+### Modelo estructural de espacio de estados
+
+El mecanismo subyacente de CausalImpact es un modelo estructural de series de tiempo bayesiano (BSTS, por sus siglas en inglés), que descompone la serie observada en componentes con interpretación estadística propia. En su formulación general de espacio de estados, el modelo tiene la forma:
+
+$$
+Y_t = \mathbf{Z}_t^\top \boldsymbol{\alpha}_t + \mathbf{x}_t^\top \boldsymbol{\beta} + \varepsilon_t, \qquad \varepsilon_t \sim \mathcal{N}(0, \sigma^2_\varepsilon),
+$$
+
+$$
+\boldsymbol{\alpha}_{t+1} = \mathbf{T}_t \boldsymbol{\alpha}_t + \mathbf{R}_t \boldsymbol{\eta}_t, \qquad \boldsymbol{\eta}_t \sim \mathcal{N}(\mathbf{0}, \mathbf{Q}_t),
+$$
+
+donde \(\boldsymbol{\alpha}_t\) es el vector de estado latente no observado, \(\mathbf{Z}_t\), \(\mathbf{T}_t\) y \(\mathbf{R}_t\) son matrices de diseño que definen la estructura del modelo, \(\mathbf{x}_t\) es el vector de covariables de control y \(\boldsymbol{\beta}\) son sus coeficientes de regresión. La ecuación de observación vincula los datos con el estado latente; la ecuación de transición describe cómo evoluciona dicho estado en el tiempo.
+
+En la implementación utilizada en este proyecto, el componente de estado incluye una tendencia local de nivel (\textit{local level}), que permite que el nivel medio de la serie varíe suavemente a lo largo del tiempo sin imponer una forma funcional rígida:
+
+$$
+\mu_t = \mu_{t-1} + \nu_t, \qquad \nu_t \sim \mathcal{N}(0, \sigma^2_\mu).
+$$
+
+Este componente resulta particularmente relevante en el presente contexto porque las desapariciones en Guanajuato presentan una tendencia creciente sostenida a lo largo de la muestra. Un modelo que asumiera nivel constante introduciría un sesgo sistemático en el contrafactual; la tendencia local absorbe esa dinámica y produce proyecciones más realistas. La varianza \(\sigma^2_\mu\) controla la velocidad a la que la tendencia puede cambiar: valores pequeños producen una tendencia casi lineal, mientras que valores más grandes le permiten al nivel adaptarse localmente a los datos.
+
+### Selección de covariables mediante prior spike-and-slab
+
+Una de las contribuciones metodológicas centrales del enfoque de Brodersen et al. es el tratamiento bayesiano de la selección de covariables de control. En el presente análisis, el pool inicial consta de 29 entidades federativas, todas potencialmente correlacionadas con Guanajuato durante el pretratamiento. Incluirlas a todas simultáneamente generaría problemas graves de multicolinealidad y sobreajuste; por otro lado, seleccionar manualmente un subconjunto introduciría arbitrariedad en el diseño.
+
+La solución propuesta es asignar a los coeficientes \(\boldsymbol{\beta}\) un prior spike-and-slab (George y McCulloch, 1997), que combina dos distribuciones:
+
+\begin{itemize}
+\item \textbf{Spike}: una masa puntual en cero, que representa la hipótesis de que el estado \(j\) no es predictor relevante de Guanajuato. La probabilidad asignada a esta componente controla cuántas variables se espera incluir en el modelo.
+\item \textbf{Slab}: una distribución normal de varianza amplia sobre los valores distintos de cero del coeficiente, que describe la magnitud del efecto si la variable sí es relevante.
+\end{itemize}
+
+Formalmente, para cada coeficiente \(\beta_j\):
+
+$$
+\beta_j \mid \gamma_j \;\sim\; \gamma_j \cdot \mathcal{N}(0,\, v_j \sigma^2) + (1 - \gamma_j) \cdot \delta_0,
+$$
+
+donde \(\gamma_j \in \{0,1\}\) es un indicador de inclusión con prior Bernoulli de parámetro \(\pi_j\), y \(\delta_0\) denota la masa puntual en cero. En cada iteración del muestreador, el modelo decide qué entidades tienen coeficiente distinto de cero y cuáles no. La probabilidad posterior de inclusión de cada estado refleja cuánto contribuye a explicar la dinámica pretratamiento de Guanajuato, lo que equivale a una selección automática y cuantificada de las entidades donoras más informativas.
+
+Esta propiedad representa una diferencia conceptual importante respecto al Control Sintético. En el Synth, todos los estados del pool reciben pesos no negativos que suman uno (combinación convexa), y la optimización puede asignar peso cero a algunos, pero no puede asignar pesos negativos ni mayores que uno. El prior spike-and-slab no impone ninguna de estas restricciones: los coeficientes pueden tomar cualquier valor real, permitiendo al modelo capturar relaciones de correlación más generales.
+
+### Estimación e inferencia bayesiana
+
+El modelo se estima exclusivamente sobre el periodo pretratamiento (\(t \leq T_0 =\) mayo de 2019). La estimación se realiza mediante un muestreador de Gibbs que alterna entre dos pasos: primero, se simula el vector de estado latente \(\boldsymbol{\alpha}_{1:T_0}\) condicionado en los parámetros actuales, utilizando el algoritmo de suavizamiento de Kalman; segundo, se simulan los parámetros condicionados en el estado simulado. Este procedimiento genera una secuencia de muestras cuya distribución estacionaria es la distribución posterior conjunta \(p(\boldsymbol{\alpha}, \boldsymbol{\beta}, \sigma^2 \mid y_{1:T_0})\).
+
+En este proyecto se utilizaron 5{,}000 iteraciones MCMC, suficientes para garantizar convergencia estable de las cadenas. Una vez obtenidas las muestras posteriores, el modelo se extrapola hacia el postratamiento (\(t > T_0\)) sin condicionar en los datos observados de Guanajuato, generando la distribución predictiva posterior del contrafactual:
+
+$$
+\tilde{Y}_t^{CF} \;\sim\; p\!\left(Y_t \mid y_{1:T_0},\, \mathbf{X}_{1:T}\right), \qquad t > T_0.
+$$
+
+El efecto causal puntual en cada periodo se estima como la diferencia entre el valor observado y la media posterior del contrafactual:
+
+$$
+\hat{\tau}_t = Y_t^{obs} - \mathbb{E}\!\left[\tilde{Y}_t^{CF}\right],
+$$
+
+y los intervalos de credibilidad al 95\% se obtienen directamente de los cuantiles de la distribución posterior de \(\tilde{Y}_t^{CF}\). El efecto acumulado sobre todo el periodo postratamiento se calcula sumando los efectos puntuales periodo a periodo, con su incertidumbre propagada de la misma distribución posterior.
+
+### Supuestos de identificación
+
+Como señalan Brodersen et al. (2015), la validez causal de las inferencias obtenidas por este método descansa sobre un supuesto central: las covariables utilizadas como control no deben haber sido afectadas por la intervención cuyo efecto se desea medir. En el presente análisis, esto equivale a asumir que la implementación de la Guardia Nacional no alteró sistemáticamente la dinámica de desapariciones en las demás entidades utilizadas como predictoras. Este supuesto es más plausible que el de tendencias paralelas globales requerido por el DID, porque no exige que todas las entidades evolucionen en paralelo con Guanajuato, sino únicamente que no hayan sido perturbadas por el mismo tratamiento de manera diferencial.
+
+Un segundo supuesto es que el modelo ajustado sobre el pretratamiento es un buen predictor del contrafactual postratamiento; es decir, que la relación estructural entre Guanajuato y sus covariables no cambió en ausencia del tratamiento. La calidad del ajuste pretratamiento, visible en las figuras de resultados, permite evaluar empíricamente si este supuesto se sostiene.
+
+### Resultados
+
+```{r ci-setup, echo=FALSE, message=FALSE, warning=FALSE}
+library(CausalImpact)
+library(zoo)
+
+impact    <- readRDS("tables/causal_impact_guanajuato.rds")
+resumen   <- impact$summary
+
+ef_abs    <- round(resumen["Average", "AbsEffect"], 1)
+ef_abs_lo <- round(resumen["Average", "AbsEffect.lower"], 1)
+ef_abs_hi <- round(resumen["Average", "AbsEffect.upper"], 1)
+ef_rel    <- round(resumen["Average", "RelEffect"] * 100, 1)
+ef_rel_lo <- round(resumen["Average", "RelEffect.lower"] * 100, 1)
+ef_rel_hi <- round(resumen["Average", "RelEffect.upper"] * 100, 1)
+p_val     <- round(resumen["Average", "p"], 4)
+pred_cf   <- round(resumen["Average", "Pred"], 1)
+observado <- round(resumen["Average", "Actual"], 1)
+```
+
+La Figura \ref{fig:ci-contrafactual} muestra la serie observada de Guanajuato junto con el contrafactual estimado por el BSTS y su intervalo de credibilidad al 95\%.
+
+```{r ci-contrafactual, echo=FALSE, fig.align='center', out.width='82%', fig.pos='H', fig.cap='Serie observada de Guanajuato y contrafactual estimado por CausalImpact (BSTS). La banda sombreada corresponde al intervalo de credibilidad al 95\\%.'}
+knitr::include_graphics("images/causal_impact_contrafactual.png")
+```
+
+Durante el periodo pretratamiento, el contrafactual BSTS sigue de cerca la trayectoria observada de Guanajuato, lo que indica un ajuste adecuado del modelo sobre la dinámica previa de la entidad. A partir de junio de 2019, la serie observada se separa persistentemente por encima del contrafactual estimado, de forma consistente con los resultados del Control Sintético y del estudio de eventos.
+
+La Figura \ref{fig:ci-brecha} presenta el efecto causal puntual \(\hat{\tau}_t\) estimado en cada periodo del postratamiento.
+
+```{r ci-brecha, echo=FALSE, fig.align='center', out.width='82%', fig.pos='H', fig.cap='Efecto causal puntual estimado por CausalImpact. La banda sombreada es el intervalo de credibilidad al 95\\%. Valores positivos indican más desapariciones que el contrafactual esperado.'}
+knitr::include_graphics("images/causal_impact_brecha.png")
+```
+
+En términos cuantitativos, el modelo estima que, en ausencia de la intervención, Guanajuato habría registrado en promedio `r pred_cf` desapariciones mensuales, frente a las `r observado` observadas. Esto se traduce en un efecto absoluto promedio de `r ef_abs` desapariciones adicionales por mes (IC~95\%: [`r ef_abs_lo`, `r ef_abs_hi`]), equivalente a un incremento relativo de `r ef_rel`\% respecto al contrafactual (IC~95\%: [`r ef_rel_lo`\%, `r ef_rel_hi`\%]). El p-valor bayesiano obtenido fue de `r p_val`, lo que indica que la probabilidad de observar un efecto de esta magnitud por variación aleatoria es muy baja.
+
+### Comparación de métodos
+
+Los cuatro enfoques aplicados en este proyecto responden la misma pregunta causal desde mecanismos de identificación distintos. La Tabla \ref{tab:comparacion-metodos} resume los efectos estimados y los supuestos clave de cada método.
+
+\begin{table}[H]
+\centering
+\caption{Comparación de métodos causales aplicados al análisis de Guanajuato.}
+\label{tab:comparacion-metodos}
+\begin{tabular}{p{3.8cm}p{5.0cm}p{4.5cm}}
+\toprule
+\textbf{Método} & \textbf{Efecto estimado} & \textbf{Supuesto clave} \\
+\midrule
+DID básico
+  & $+543$ desapariciones/periodo
+  & Tendencias paralelas globales \\
+DID con efectos fijos
+  & $+542.6$ des./periodo ($p < 0.001$)
+  & Tendencias paralelas + ausencia de shocks específicos \\
+Control Sintético
+  & Brecha positiva creciente post-2019
+  & Contrafactual como combinación convexa de donoras \\
+CausalImpact (BSTS)
+  & $+$\Sexpr{ef_abs} des./mes (IC: [\Sexpr{ef_abs_lo}, \Sexpr{ef_abs_hi}])
+  & Covariables no afectadas por el tratamiento \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+La convergencia de los cuatro métodos hacia el mismo signo e interpretación constituye evidencia robusta de que Guanajuato experimentó un incremento diferencial en desapariciones posterior a junio de 2019. Esta convergencia es particularmente relevante dado que el estudio de eventos mostró limitaciones en el supuesto de tendencias paralelas, lo que debilita al DID como argumento aislado. El hecho de que el Control Sintético y CausalImpact, que operan bajo supuestos distintos y no requieren tendencias paralelas globales, lleguen a la misma conclusión refuerza la interpretación causal del resultado.
+
+No obstante, ningún método elimina por completo la posibilidad de que factores no observados específicos de Guanajuato expliquen el incremento observado. Esta limitación es inherente a todo diseño observacional y se discute con mayor detalle en las conclusiones del proyecto.

@@ -9,6 +9,3 @@
 *.tex
 
 .DS_Store
-
-data/processed/
-outputs/

@@ -1,0 +1,8 @@
+Metrica,Valor
+Predicción contrafactual promedio,1745.55
+Valor observado promedio,2119.75
+Efecto absoluto promedio,374.21
+IC 95% inferior,194.43
+IC 95% superior,966.02
+Efecto relativo promedio (%),23.51
+p-valor bayesiano,4e-4
