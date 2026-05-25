@@ -265,6 +265,70 @@ Este resultado es importante para las siguientes etapas del proyecto. En primer 
 
 En conjunto, el análisis exploratorio muestra que el fenómeno de desapariciones en México presenta una dimensión temporal y territorial suficientemente rica para ser estudiada mediante métodos dinámicos de inferencia causal. La siguiente etapa consistirá en definir formalmente las entidades tratadas y de control, así como estimar los modelos causales propuestos.
 
+# Marco causal y diagrama causal
+
+El objetivo causal del proyecto consiste en estimar el efecto de la implementación y presencia de la Guardia Nacional sobre el número de desapariciones registradas en México.
+
+Formalmente, el tratamiento se define como:
+
+$$
+T = \text{Implementación / presencia de la Guardia Nacional}
+$$
+
+mientras que la variable de resultado corresponde al número de desapariciones registradas por entidad y periodo:
+
+$$
+Y_{it} = \text{Número de desapariciones en la entidad } i \text{ en el periodo } t
+$$
+
+donde:
+
+- \(i\) representa la entidad federativa,
+- \(t\) representa el periodo mensual de observación.
+
+Bajo el marco de resultados potenciales, cada entidad federativa posee dos resultados potenciales:
+
+$$
+Y_i(1)
+$$
+
+correspondiente al número de desapariciones bajo tratamiento, y
+
+$$
+Y_i(0)
+$$
+
+correspondiente al resultado contrafactual en ausencia de tratamiento.
+
+Sin embargo, para cada unidad únicamente observamos uno de estos dos resultados, lo cual motiva la necesidad de utilizar métodos de inferencia causal para aproximar el contrafactual.
+
+La Figura \ref{fig:dag-causal} presenta el diagrama causal (DAG) propuesto para el proyecto.
+
+```{r dag-causal, echo=FALSE, fig.cap="Diagrama causal del proyecto.", out.width="100%"}
+knitr::include_graphics("images/dag_causal.png")
+```
+
+El DAG resume las principales relaciones causales consideradas en el análisis. En particular, se identifican múltiples variables de confusión (\textit{confounders}) que afectan tanto la implementación de la Guardia Nacional como el número de desapariciones observadas.
+
+Entre las principales variables de confusión consideradas destacan:
+
+- violencia previa,
+- presencia de crimen organizado,
+- capacidad institucional y policial estatal,
+- factores socioeconómicos,
+- tendencias regionales,
+- y choques nacionales comunes.
+
+Estas variables generan caminos de backdoor entre el tratamiento y el resultado:
+
+$$
+T \leftarrow X \rightarrow Y
+$$
+
+Asimismo, el DAG permite identificar posibles variables tipo collider. Por ejemplo, la mejora en capacidades de registro y denuncia puede estar influida simultáneamente por la presencia de la Guardia Nacional y por cambios en los niveles reales de violencia. Condicionar incorrectamente sobre este tipo de variables podría inducir sesgos adicionales en la estimación causal.
+
+Finalmente, es importante señalar que la Guardia Nacional constituye una política implementada a nivel nacional, por lo que el análisis no identifica un “efecto puro” absoluto de la intervención, sino cambios diferenciales en entidades específicas —particularmente Guanajuato— respecto a contrafactuales construidos a partir de otras entidades federativas.
+
 # Diferencia en Diferencias (DID)
 
 ## Modelo básico de Diferencia en Diferencias
@@ -585,9 +649,8 @@ En términos cuantitativos, el modelo estima que, en ausencia de la intervenció
 
 # Comparación de métodos
 
-Los cuatro enfoques aplicados en este proyecto responden la misma pregunta causal desde mecanismos de identificación distintos. La Tabla \ref{tab:comparacion-metodos} resume los efectos estimados y los supuestos clave de cada método.
+Los cuatro enfoques aplicados en este proyecto responden la misma pregunta causal desde mecanismos de identificación distintos. La Tabla \ref{tab:tabla-comparacion} resume los efectos estimados y los supuestos clave de cada método.
 
-La Tabla \ref{tab:comparacion-metodos} resume los efectos estimados y los supuestos clave de cada método.
 
 ```{r tabla-comparacion, echo=FALSE}
 library(knitr)
@@ -638,3 +701,53 @@ kable(
 La convergencia de los cuatro métodos hacia el mismo signo e interpretación constituye evidencia robusta de que Guanajuato experimentó un incremento diferencial en desapariciones posterior a junio de 2019. Esta convergencia es particularmente relevante dado que el estudio de eventos mostró limitaciones en el supuesto de tendencias paralelas, lo que debilita al DID como argumento aislado. El hecho de que el Control Sintético y CausalImpact, que operan bajo supuestos distintos y no requieren tendencias paralelas globales, lleguen a la misma conclusión refuerza la interpretación causal del resultado.
 
 No obstante, ningún método elimina por completo la posibilidad de que factores no observados específicos de Guanajuato expliquen el incremento observado. Esta limitación es inherente a todo diseño observacional y se discute con mayor detalle en las conclusiones del proyecto.
+
+
+# Bibliografía
+
+\begin{enumerate}
+
+\item Brodersen, Kay H., Fabian Gallusser, Jim Koehler, Nicolas Remy y Steven L. Scott (2015). ``Inferring causal impact using Bayesian structural time-series models.'' \textit{The Annals of Applied Statistics}, 9(1), 247--274.
+
+\item Ding, Peng (2024). \textit{A First Course in Causal Inference}. CRC Press.
+
+\item Gelman, Andrew y Jennifer Hill (2006). \textit{Data Analysis Using Regression and Multilevel/Hierarchical Models}. Cambridge University Press.
+
+\item Hernán, Miguel A. y James Robins (2020). \textit{Causal Inference: What If}. CRC Press.
+
+\item Huntington-Klein, Nick (2022). \textit{The Effect: An Introduction to Research Design and Causality}. CRC Press.
+
+\item McElreath, Richard (2020). \textit{Statistical Rethinking: A Bayesian Course with Examples in R and Stan}. 2nd Edition. CRC Press.
+
+
+\item Pearl, Judea, Madelyn Glymour y Nicholas P. Jewell (2016). \textit{Causal Inference in Statistics: A Primer}. Wiley.
+
+\item Rosenbaum, Paul R. (2023). \textit{Causal Inference}. The MIT Press.
+
+\item Rubin, Donald B. (2006). \textit{Matched Sampling for Causal Effects}. Cambridge University Press.
+
+\item Callaway, Brantly y Pedro H. C. Sant’Anna (2021). ``Difference-in-Differences with Multiple Time Periods.'' \textit{Journal of Econometrics}, 225(2), 200--230.
+
+\item Sun, Liyang y Sarah Abraham (2021). ``Estimating Dynamic Treatment Effects in Event Studies with Heterogeneous Treatment Effects.'' \textit{Journal of Econometrics}, 225(2), 175--199.
+
+\item Comisión Nacional de Búsqueda (CNB). Registro Nacional de Personas Desaparecidas y No Localizadas (RNPDNO). Gobierno de México.
+
+\item Montserrat Medina. Repositorio \texttt{personas-desaparecidas}. Disponible en:
+
+\begin{center}
+\texttt{https://github.com/lapanquecita/personas-desaparecidas}
+\end{center}
+
+\item De la Vega Góngora, Jorge. \textit{Notas del curso Métodos Analíticos}. Maestría en Ciencia de Datos, ITAM, 2026.
+
+\end{enumerate}
+
+# Anexos
+
+## Repositorio del proyecto
+
+El código completo utilizado para la limpieza de datos, construcción del panel, análisis exploratorio, estimación de modelos causales y generación del reporte se encuentra disponible en el siguiente repositorio público de GitHub:
+
+\begin{center}
+\texttt{https://github.com/andres-padronqu/dynamic-causal-inference}
+\end{center}
